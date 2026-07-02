@@ -8,7 +8,7 @@ and abort, custom REST routes (JSON, 404, binary PNG, raw upload), the
 This repo is for **reading and running**. To start a plugin of your own, instantiate the
 [**plugin template**](https://github.com/3lc-ai/3lc-compute-plugin-template) instead — then
 crib from here as you grow. The full contract reference lives in the
-[**plugin author guide**](https://github.com/3lc-ai/3lc-compute-plugin-sdk/blob/main/docs/plugin-guide.md)
+[**plugin author guide**](https://3lc-ai.github.io/3lc-compute-plugin-sdk/plugin-guide.html)
 (`3lc-compute-plugin-sdk`).
 
 The plugin is `venv`-isolated: the host reads [`plugin.toml`](src/tlc_plugin_example/plugin.toml)
