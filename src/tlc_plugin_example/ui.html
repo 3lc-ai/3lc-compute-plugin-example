@@ -1,0 +1,192 @@
+<!--
+  Mission Control — the example plugin's UI: a self-contained HTML+CSS+JS fragment
+  served at GET /api/plugins/example/ui. Every panel below drives one piece of the
+  plugin contract, so this file doubles as living documentation for the JS side:
+
+    window.PLUGIN_API  — the host bridge (context, getConfig, authFetch, data,
+                         showToast, getIcon); injected by the frontend at mount.
+    window.PluginJobs  — the generic job channel client (run/track/cancel + custom
+                         ctx.emit events); injected by get_ui_fragment() right after
+                         the first <script> tag below.
+
+  House rules: reach the host ONLY through PLUGIN_API, and style with the theme
+  tokens (var(--text), var(--bg-card), ...) — never hardcoded hex — so the fragment
+  matches the active theme, light and dark.
+-->
+<div class="mc" data-plugin-id="example">
+  <style>
+    .mc { color: var(--text); padding: 20px; max-width: 820px; font-family: inherit; }
+    .mc h1 { margin: 0 0 4px; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+    .mc h1 svg { width: 20px; height: 20px; }
+    .mc .sub { color: var(--text-muted); margin: 0 0 18px; font-size: 12px; }
+    .mc section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg, 8px); padding: 16px; margin: 12px 0; }
+    .mc h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 0 0 12px; }
+    .mc h2 code { text-transform: none; }
+    .mc button { font: inherit; font-size: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); background: var(--bg); color: var(--text); cursor: pointer; margin: 0 6px 6px 0; transition: background var(--transition, 150ms ease); }
+    .mc button:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); }
+    .mc button:disabled { opacity: .5; cursor: default; }
+    .mc select { font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); background: var(--bg); color: var(--text); margin-right: 6px; }
+    .mc pre { background: var(--code-bg); color: var(--code-fg); border-radius: var(--radius-sm, 4px); padding: 10px; overflow: auto; font-size: 12px; margin: 8px 0 0; max-height: 180px; }
+    .mc code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--bg); border: 1px solid var(--border-light); padding: 1px 5px; border-radius: var(--radius-sm, 4px); font-size: .9em; }
+    .mc .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+    .mc .stat { border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); padding: 8px 14px; min-width: 90px; }
+    .mc .stat b { display: block; font-size: 18px; }
+    .mc .stat span { font-size: 11px; color: var(--text-muted); }
+    .mc .bar { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; margin: 10px 0 8px; }
+    .mc .bar > i { display: block; height: 100%; width: 0; background: var(--btn-primary-bg); transition: width .2s; }
+    .mc img.patch { vertical-align: middle; image-rendering: pixelated; width: 48px; height: 48px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg); padding: 4px; }
+  </style>
+
+  <h1><span id="mc-icon"></span>Mission Control</h1>
+  <p class="sub">The example plugin: every contract surface, staged as a rocket launch.
+    Start your own from <code>3lc-compute-plugin-template</code>; crib from this one as you grow.</p>
+
+  <section>
+    <h2>Launch context — <code>PLUGIN_API.context</code></h2>
+    <pre id="mc-ctx">…</pre>
+  </section>
+
+  <section>
+    <h2>The hangar — real workspace data via <code>PLUGIN_API.data</code> (TlcData)</h2>
+    <div class="stats" id="mc-hangar"><span class="sub">loading…</span></div>
+  </section>
+
+  <section>
+    <h2>Go / no-go poll — <code>compute()</code>, the synchronous call</h2>
+    <button id="mc-gonogo">Poll all stations</button>
+    <pre id="mc-gonogo-out">—</pre>
+  </section>
+
+  <section>
+    <h2>Crew &amp; cargo — custom routes via <code>get_route_handlers()</code></h2>
+    <button id="mc-crew">GET /crew</button>
+    <button id="mc-crew-add">POST /crew (recruit)</button>
+    <button id="mc-crew-404">GET /crew/elvis → 404</button>
+    <button id="mc-cargo">POST /cargo (raw bytes)</button>
+    <span>mission patch (binary, auth-exempt): <img class="patch" id="mc-patch" alt="mission patch"></span>
+    <pre id="mc-routes-out">—</pre>
+  </section>
+
+  <section>
+    <h2>Launch sequence — <code>run_job(ctx)</code> + the generic job channel</h2>
+    <select id="mc-dest">
+      <option>Luna</option><option>Mars</option><option>Europa</option><option>Titan</option>
+    </select>
+    <button id="mc-launch">Launch</button>
+    <button id="mc-abort" disabled>Abort</button>
+    <div class="bar"><i id="mc-bar"></i></div>
+    <div class="stats">
+      <div class="stat"><b id="mc-alt">0</b><span>altitude, km (ctx.metric)</span></div>
+      <div class="stat"><b id="mc-vel">0</b><span>velocity, km/s (ctx.metric)</span></div>
+      <div class="stat"><b id="mc-stage">—</b><span>stage (ctx.emit telemetry)</span></div>
+    </div>
+    <pre id="mc-job-out">pad is clear — select a destination</pre>
+  </section>
+
+  <script>
+  /* window.PluginJobs is injected by get_ui_fragment() right after this tag. The
+     ambient types for PLUGIN_API / PluginJobs load via the repo-root jsconfig.json. */
+  (function () {
+    var API = window.PLUGIN_API;
+    var EL = document.currentScript.closest('.mc');
+    var PLUGIN_ID = EL.getAttribute('data-plugin-id');
+    var NAMESPACE = '/' + PLUGIN_ID;
+    var base = API.getConfig('compute_service_url');
+    var $ = function (id) { return EL.querySelector('#' + id); };
+    var show = function (id, v) { $(id).textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 2); };
+    var api = function (path, opts) { return API.authFetch(base + '/api/plugins/' + PLUGIN_ID + path, opts); };
+
+    // PLUGIN_API.getIcon — the manifest's icon_svg, resolved by the host.
+    $('mc-icon').innerHTML = API.getIcon ? API.getIcon() : '';
+
+    // PLUGIN_API.context — what the user launched the plugin against.
+    show('mc-ctx', {
+      resourceType: API.context.resourceType,
+      resourceUrls: API.context.resourceUrls,
+      projectName: API.context.projectName,
+      contractVersion: API.contractVersion
+    });
+
+    // PLUGIN_API.data (TlcData) — the frontend's cached indexing tables: real
+    // projects/tables/runs, no plugin-side plumbing. Null when mounted outside the Hub.
+    if (API.data) {
+      API.data.load().then(function () {
+        var s = API.data.getSummary();
+        $('mc-hangar').innerHTML =
+          '<div class="stat"><b>' + s.project_count + '</b><span>projects</span></div>' +
+          '<div class="stat"><b>' + s.table_count + '</b><span>tables</span></div>' +
+          '<div class="stat"><b>' + s.run_count + '</b><span>runs</span></div>';
+      }).catch(function (e) { $('mc-hangar').textContent = 'TlcData unavailable: ' + e; });
+    } else {
+      $('mc-hangar').textContent = 'TlcData not present on this page';
+    }
+
+    // compute() — synchronous request/response.
+    $('mc-gonogo').onclick = function () {
+      api('/compute?poll=' + Date.now()).then(function (r) { return r.json(); }).then(function (j) {
+        show('mc-gonogo-out', j);
+        API.showToast(j.verdict, j.verdict.indexOf('GO') === 0 ? 'success' : 'warning');
+      });
+    };
+
+    // Custom routes — JSON collection, JSON body in, a real 404, raw bytes, binary.
+    $('mc-crew').onclick = function () {
+      api('/crew').then(function (r) { return r.json(); }).then(function (j) { show('mc-routes-out', j); });
+    };
+    $('mc-crew-add').onclick = function () {
+      var rookies = ['katherine', 'dorothy', 'mary', 'valentina', 'sally'];
+      var name = rookies[Math.floor(Math.random() * rookies.length)];
+      api('/crew', { method: 'POST', body: JSON.stringify({ name: name }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { show('mc-routes-out', j); API.showToast(j.name + ' joined the crew', 'success'); });
+    };
+    $('mc-crew-404').onclick = function () {
+      api('/crew/elvis').then(function (r) { return r.json(); })
+        .then(function (j) { show('mc-routes-out', j); })
+        .catch(function (e) { show('mc-routes-out', '404 — ' + e.message); });
+    };
+    $('mc-cargo').onclick = function () {
+      api('/cargo', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: new Uint8Array([42, 42, 42, 42]) })
+        .then(function (r) { return r.json(); }).then(function (j) { show('mc-routes-out', j); });
+    };
+    // Auth-exempt binary asset — an <img> can't send an Authorization header.
+    $('mc-patch').src = base + '/api/plugins/' + PLUGIN_ID + '/patch.png';
+
+    // run_job(ctx) via window.PluginJobs — start/track/cancel on the generic channel,
+    // plus the plugin-private ctx.emit('telemetry') stream for the live readouts.
+    var currentJob = null, offTelemetry = null;
+    var done = function (msg) {
+      $('mc-launch').disabled = false; $('mc-abort').disabled = true;
+      if (offTelemetry) { offTelemetry(); offTelemetry = null; }
+      show('mc-job-out', msg);
+    };
+    $('mc-launch').onclick = function () {
+      $('mc-launch').disabled = true; $('mc-abort').disabled = false;
+      $('mc-bar').style.width = '0%';
+      var dest = $('mc-dest').value;
+      // Subscribe to the plugin-private event BEFORE run(), so nothing is missed.
+      offTelemetry = window.PluginJobs.on(NAMESPACE, 'telemetry', function (t) {
+        $('mc-stage').textContent = t.stage;
+        $('mc-alt').textContent = Math.round(t.altitude_km);
+        $('mc-vel').textContent = t.velocity_kms.toFixed(1);
+      });
+      window.PluginJobs.run(PLUGIN_ID, { destination: dest, stages: 3 }, {
+        onUpdate: function (job) {
+          currentJob = job.id || currentJob;
+          $('mc-bar').style.width = ((job.progress && job.progress.percent) || 0) + '%';
+          show('mc-job-out', (job.progress && job.progress.label) || job.status || '…');
+        },
+        onDone: function (job) {
+          $('mc-bar').style.width = '100%';
+          API.showToast('Mission to ' + dest + ' complete', 'success');
+          done(job.status === 'cancelled'
+            ? 'mission aborted — capsule recovered'
+            : 'orbit achieved — run_url: ' + (job.run_url || '(none)'));
+        },
+        onError: function (job) { done('anomaly: ' + (job.subtitle || 'unknown')); }
+      });
+    };
+    $('mc-abort').onclick = function () { if (currentJob) { window.PluginJobs.cancel(currentJob); } };
+  })();
+  </script>
+</div>

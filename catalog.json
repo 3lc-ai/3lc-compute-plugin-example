@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "generated_at": "",
+  "plugins": [
+    {
+      "id": "example",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "source": "3lc-compute-plugin-example[example] @ git+https://github.com/3lc-ai/3lc-compute-plugin-example.git@main",
+          "wheel_url": "",
+          "manifest": {
+            "id": "example",
+            "name": "Mission Control",
+            "description": "The example plugin — a runnable tour of everything a plugin can do, staged as a rocket launch.",
+            "version": "0.1.0",
+            "min_service_version": "0.1.0",
+            "icon": "🚀",
+            "icon_svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M8 1.5c2 1.5 3 4 3 6.5l-1.5 3h-3L5 8c0-2.5 1-5 3-6.5z\"/><circle cx=\"8\" cy=\"6.5\" r=\"1\"/><path d=\"M5 8l-1.7 2.2L5.5 11M11 8l1.7 2.2L10.5 11M7 12.5l1 2 1-2\"/></svg>",
+            "ui": {
+              "display_mode": "sidebar",
+              "section": "Examples",
+              "priority": 10,
+              "compatible_with": ["table"],
+              "quick_action": true,
+              "quick_action_label": "Launch a Mission",
+              "quick_action_description": "Fly the example plugin end to end: jobs, routes, telemetry"
+            },
+            "runtime": {
+              "isolation": "venv",
+              "entrypoint": "tlc_plugin_example:ExamplePlugin",
+              "provision_extra": "example",
+              "requires_gpu": false
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

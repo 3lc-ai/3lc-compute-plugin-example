@@ -1,0 +1,84 @@
+# 3lc-compute-plugin-example — "Mission Control", a runnable tour of everything a 3LC
+# compute-service plugin can do (jobs, custom routes, the UI bridge), staged as a rocket launch.
+#
+# Starting a plugin of your own? Instantiate the template instead and crib from this repo:
+#   https://github.com/3lc-ai/3lc-compute-plugin-template
+#
+# Isolation contract: this distribution is NEVER installed into the host venv. The host discovers
+# the plugin from its bundled `plugin.toml` (read WITHOUT importing) and provisions it into its
+# OWN managed venv — via a folder Source pointed at `src/` (dev) or an install from the catalog
+# (git/index). A plugin's deps live in its extra below and land only in that plugin's venv.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "3lc-compute-plugin-example"
+version = "0.1.0"
+description = "Mission Control — the example plugin for the 3LC compute service (venv-isolated)."
+requires-python = ">=3.10"
+# Apache-2.0, matching 3lc-compute-plugin-sdk. Full text in ./LICENSE.
+license = { text = "Apache-2.0" }
+classifiers = ["License :: OSI Approved :: Apache Software License"]
+# Base = the SDK floor ONLY. This plugin needs no more; a real plugin's deps go in its
+# extra below, never in the base. If your plugin uses the SDK's `tlc` data plane
+# (`tlc_plugin_sdk.shared.*` image/alias/model-storage helpers), depend on
+# `3lc-compute-plugin-sdk[shared]` AND add `3lc[pandas]>=3.0.0,<4.0.0` as a direct dep with the
+# `3lc-releases` index source below — uv does not propagate sources across a registry dep.
+dependencies = [
+    "3lc-compute-plugin-sdk>=0.1.0,<0.2.0",
+]
+
+# The plugin's extra — installed ONLY into its provisioned venv. Provisioning opts into the
+# extra named by the plugin manifest's runtime.provision_extra. Mission Control is deliberately
+# dependency-free (installs stay snappy); this is where your torch/pandas/… would go.
+[project.optional-dependencies]
+example = []
+
+# Every plugin advertises itself here; the host iterates this group to discover them all.
+# Value = the import package; its bundled plugin.toml drives id/ui/runtime (and the extra).
+[project.entry-points."tlc_compute.plugins"]
+example = "tlc_plugin_example"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/tlc_plugin_example",
+]
+
+# 3lc prereleases index — where 3lc-compute-plugin-sdk is published.
+[[tool.uv.index]]
+name = "3lc-prereleases"
+url = "https://pypi.3lc.ai/public/repositories/prereleases-public"
+explicit = true
+
+# 3lc releases index — 3lc versions not yet on public PyPI (uncomment with a `3lc` dep).
+# [[tool.uv.index]]
+# name = "3lc-releases"
+# url = "https://pypi.3lc.ai/public/repositories/releases-public"
+# explicit = true
+
+[tool.uv.sources]
+# The SDK resolves from the prereleases index. Keep these committed — a committed relative
+# `path = ...` source breaks remote consumers (uv reads it as a subdirectory of this repo).
+# For local dev against a sibling SDK checkout, override UNCOMMITTED:
+#   3lc-compute-plugin-sdk = { path = "../3lc-plugin-sdk", editable = true }
+3lc-compute-plugin-sdk = { index = "3lc-prereleases" }
+# 3lc = { index = "3lc-releases" }
+
+# Ruff config mirrors 3lc-compute-plugin-sdk for a consistent house style. CI runs ruff
+# standalone (uvx) — linting must not require resolving any dependency stack.
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+exclude = [".git", ".mypy_cache", ".ruff_cache", ".venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["A", "C4", "E", "EM", "F", "I", "N", "PIE", "RUF", "SIM", "UP", "W"]
+ignore = ["N806", "N818", "SIM105", "SIM108", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+preview = true
+docstring-code-format = true

@@ -1,0 +1,46 @@
+# ── Manifest for the example plugin (fully annotated) ────────────────────────
+#
+# The single source of this plugin's metadata, parsed WITHOUT importing the code —
+# discovery can list, gate, and route a plugin even when its code can't be imported
+# (it shows greyed-out with a reason instead of vanishing). Equivalent to a
+# [tool.tlc-compute] table inside a pyproject.toml.
+#
+# This file documents the full manifest surface: required keys are set, optional
+# ones are shown commented with what they do.
+
+id = "example"                        # public id; used in URLs AND as the SocketIO namespace (/example). Hyphens ok.
+name = "Mission Control"
+description = "The example plugin — a runnable tour of everything a plugin can do, staged as a rocket launch."
+version = "0.1.0"                     # SemVer; bump on every release
+icon = "🚀"                           # emoji / short text icon; icon_svg below wins where SVG is supported
+icon_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5c2 1.5 3 4 3 6.5l-1.5 3h-3L5 8c0-2.5 1-5 3-6.5z"/><circle cx="8" cy="6.5" r="1"/><path d="M5 8l-1.7 2.2L5.5 11M11 8l1.7 2.2L10.5 11M7 12.5l1 2 1-2"/></svg>'
+min_service_version = "0.1.0"         # refuse to load on older compute-services (contract floor)
+# max_service_version = "1.0.0"       # ceiling, when a host change would break this plugin
+# min_frontend_version = "0.1.0"      # the PLUGIN_API (JS_CONTRACT) version this ui.html requires
+repository_url = "https://github.com/3lc-ai/3lc-compute-plugin-example"  # shown on the plugins page
+
+[ui]
+display_mode = "sidebar"              # sidebar = nav item (grouped by `section`); action = button on resource pages; hidden = no UI entry
+section = "Examples"                  # sidebar group heading (sidebar mode)
+priority = 10                         # higher sorts earlier within the section
+compatible_with = ["table"]           # resource types this plugin applies to: "table" | "run"
+# ── action-mode fields (used when display_mode = "action") ──
+# input_types = ["table"]             # resource types the action consumes
+# min_input_count = 1                 # min selected resources to enable the action (default: len(input_types))
+# action_param_names = ["url"]        # query params handed to /plugin/{id} when launched from a resource page
+# output_types = ["run"]              # what this plugin produces (informational)
+quick_action = true                   # surface as a one-click action on the dashboard
+quick_action_label = "Launch a Mission"
+quick_action_description = "Fly the example plugin end to end: jobs, routes, telemetry"
+
+[runtime]
+isolation = "venv"                    # runs out-of-process in this plugin's own venv (the way)
+entrypoint = "tlc_plugin_example:ExamplePlugin"   # module:Class the host instantiates (in the worker)
+provision_extra = "example"           # this plugin's extra in the repo-root pyproject.toml
+requires_gpu = false                  # true → classified GPU + serialized through the shared GPU queue
+# training = false                    # marks long-running, training-style jobs (informational)
+# venv_python = "/abs/path/python"    # pin the worker interpreter (else: env var → managed venv → host)
+# Routes excluded from the standard auth middleware, for assets fetched without an
+# Authorization header (e.g. an <img> src). Validate a signed token in-handler for
+# anything private; this mission patch is public.
+auth_exempt_paths = ["/api/plugins/example/patch.png"]
