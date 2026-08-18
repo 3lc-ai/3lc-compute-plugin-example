@@ -14,7 +14,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "3lc-compute-plugin-example"
-version = "0.1.0"
+version = "0.2.0"
 description = "Mission Control — the example plugin for the 3LC compute service (venv-isolated)."
 requires-python = ">=3.10"
 # Apache-2.0, matching 3lc-compute-plugin-sdk. Full text in ./LICENSE.
@@ -23,10 +23,10 @@ classifiers = ["License :: OSI Approved :: Apache Software License"]
 # Base = the SDK floor ONLY. This plugin needs no more; a real plugin's deps go in its
 # extra below, never in the base. If your plugin uses the SDK's `tlc` data plane
 # (`tlc_plugin_sdk.shared.*` image/alias/model-storage helpers), depend on
-# `3lc-compute-plugin-sdk[shared]` AND add `3lc[pandas]>=3.0.0,<4.0.0` as a direct dep with the
-# `3lc-releases` index source below — uv does not propagate sources across a registry dep.
+# `3lc-compute-plugin-sdk[shared]` AND add `3lc[pandas]>=3.0.0,<4.0.0` as a direct dep —
+# both resolve from public PyPI.
 dependencies = [
-    "3lc-compute-plugin-sdk>=0.1.0,<0.2.0",
+    "3lc-compute-plugin-sdk>=0.2.2,<0.3.0",
 ]
 
 # The plugin's extra — installed ONLY into its provisioned venv. Provisioning opts into the
@@ -45,25 +45,12 @@ packages = [
     "src/tlc_plugin_example",
 ]
 
-# 3lc prereleases index — where 3lc-compute-plugin-sdk is published.
-[[tool.uv.index]]
-name = "3lc-prereleases"
-url = "https://pypi.3lc.ai/public/repositories/prereleases-public"
-explicit = true
-
-# 3lc releases index — 3lc versions not yet on public PyPI (uncomment with a `3lc` dep).
-# [[tool.uv.index]]
-# name = "3lc-releases"
-# url = "https://pypi.3lc.ai/public/repositories/releases-public"
-# explicit = true
-
-[tool.uv.sources]
-# The SDK resolves from the prereleases index. Keep these committed — a committed relative
-# `path = ...` source breaks remote consumers (uv reads it as a subdirectory of this repo).
-# For local dev against a sibling SDK checkout, override UNCOMMITTED:
+# Both `3lc` and `3lc-compute-plugin-sdk` resolve from public PyPI (the SDK's home since
+# 0.2.2) — no custom indexes. For local dev against a sibling SDK checkout, add an
+# UNCOMMITTED [tool.uv.sources] override (a committed relative `path = ...` source breaks
+# remote consumers — uv reads it as a subdirectory of this repo):
+#   [tool.uv.sources]
 #   3lc-compute-plugin-sdk = { path = "../3lc-plugin-sdk", editable = true }
-3lc-compute-plugin-sdk = { index = "3lc-prereleases" }
-# 3lc = { index = "3lc-releases" }
 
 # Ruff config mirrors 3lc-compute-plugin-sdk for a consistent house style. CI runs ruff
 # standalone (uvx) — linting must not require resolving any dependency stack.

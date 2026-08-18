@@ -86,4 +86,31 @@ def get_route_handlers() -> list[BaseRouteHandler]:
             "verdict": "cargo secured" if raw else "cargo bay empty",
         }
 
-    return [list_crew, get_crew_member, add_crew_member, patch, load_cargo]
+    # sync_to_thread=True: this handler stats the filesystem, so it runs plain-def in a
+    # threadpool instead of blocking the event loop (the rule from the module docstring).
+    @post("/cargo-manifest", status_code=200, sync_to_thread=True)
+    def inspect_cargo_manifest(data: dict[str, Any]) -> dict[str, Any]:
+        """Inspect a file the user picked with the SDK's shared data-source widget.
+
+        Every user-typed path goes through ``normalize_local_path`` at ingress: it
+        strips whitespace, expands ``~``, and rejects relative paths (which would
+        silently resolve against the plugin venv's CWD, not the user's).
+        """
+        from pathlib import Path as _Path
+
+        from tlc_plugin_sdk.shared.url_utils import normalize_local_path
+
+        try:
+            manifest_path = normalize_local_path(str(data.get("path", "")))
+        except ValueError as exc:
+            return {"error": str(exc)}
+        p = _Path(manifest_path)
+        if not p.is_file():
+            return {"error": f"No such file on the compute node: {manifest_path}"}
+        return {
+            "path": manifest_path,
+            "size_bytes": p.stat().st_size,
+            "verdict": "manifest accepted — cargo cleared for loading",
+        }
+
+    return [list_crew, get_crew_member, add_crew_member, patch, load_cargo, inspect_cargo_manifest]

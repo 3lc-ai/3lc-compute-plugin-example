@@ -68,6 +68,13 @@
   </section>
 
   <section>
+    <h2>Cargo manifest — the shared data-source picker (<code>shared.data_source_ui</code>)</h2>
+    <div id="mc-manifest" style="max-width: 480px; margin-bottom: 8px"></div>
+    <button id="mc-manifest-check">POST /cargo-manifest (inspect)</button>
+    <pre id="mc-manifest-out">pick a file on the compute node — browse, type a path, or upload</pre>
+  </section>
+
+  <section>
     <h2>Launch sequence — <code>run_job(ctx)</code> + the generic job channel</h2>
     <select id="mc-dest">
       <option>Luna</option><option>Mars</option><option>Europa</option><option>Titan</option>
@@ -151,6 +158,22 @@
     };
     // Auth-exempt binary asset — an <img> can't send an Authorization header.
     $('mc-patch').src = base + '/api/plugins/' + PLUGIN_ID + '/patch.png';
+
+    // The SDK's shared data-source picker — one consistent chooser for files and folders
+    // on the compute node (injected by get_ui_fragment() alongside PluginJobs).
+    // _tlcDataSourceHtml renders the widget, _tlcBindDataSource wires its Browse/Upload
+    // panel to the SDK-provided /browse + /upload-temp routes this plugin mounts in
+    // get_route_handlers(), and _tlcGetDataSourceValue reads the path at submit time.
+    $('mc-manifest').innerHTML = _tlcDataSourceHtml('mc-manifest-path', {
+      placeholder: '/path/to/cargo-manifest.txt',
+      mode: 'file',
+      allowUpload: true
+    });
+    _tlcBindDataSource('mc-manifest-path', base, PLUGIN_ID);
+    $('mc-manifest-check').onclick = function () {
+      api('/cargo-manifest', { method: 'POST', body: JSON.stringify({ path: _tlcGetDataSourceValue('mc-manifest-path') }) })
+        .then(function (r) { return r.json(); }).then(function (j) { show('mc-manifest-out', j); });
+    };
 
     // run_job(ctx) via window.PluginJobs — start/track/cancel on the generic channel,
     // plus the plugin-private ctx.emit('telemetry') stream for the live readouts.
