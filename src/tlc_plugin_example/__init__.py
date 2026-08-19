@@ -12,7 +12,8 @@ implementation:
   ``ctx.emit("telemetry", …)`` events for this plugin's own UI, and a cooperative abort
   via ``ctx.cancelled``;
 - ``get_route_handlers()`` — custom REST routes (crew manifest CRUD, a generated
-  mission-patch PNG, a raw-bytes cargo upload) — see ``routes.py``;
+  mission-patch PNG, a raw-bytes cargo upload, a cargo-manifest inspection fed by the
+  SDK's shared data-source picker) — see ``routes.py``;
 - ``get_ui_fragment()`` — a fragment that drives all of the above through
   ``window.PLUGIN_API`` and ``window.PluginJobs``;
 - ``initialise_runtime`` / ``shutdown_runtime`` — the optional lifecycle hooks.
@@ -66,14 +67,18 @@ class ExamplePlugin(ComputePlugin):
     def get_ui_fragment(self) -> str:
         """Serve the fragment at ``GET /api/plugins/example/ui``.
 
-        ``inject_scripts`` splices the SDK's job-tracker client (``window.PluginJobs``)
-        into the fragment right after its first ``<script>``, so the UI can start,
-        track, and abort jobs on the generic channel without any SocketIO plumbing.
+        ``inject_scripts`` splices the SDK's shared client scripts into the fragment
+        right after its first ``<script>``: the job-tracker (``window.PluginJobs``) so
+        the UI can start, track, and abort jobs on the generic channel without any
+        SocketIO plumbing, and the data-source picker (``_tlcDataSourceHtml`` /
+        ``_tlcBindDataSource`` / ``_tlcGetDataSourceValue``) for choosing files and
+        folders on the compute node.
         """
+        from tlc_plugin_sdk.shared.data_source_ui import data_source_ui_script
         from tlc_plugin_sdk.shared.job_tracker import job_tracker_script
         from tlc_plugin_sdk.shared.ui_inject import inject_scripts
 
-        return inject_scripts(_UI.read_text(encoding="utf-8"), job_tracker_script())
+        return inject_scripts(_UI.read_text(encoding="utf-8"), data_source_ui_script(), job_tracker_script())
 
     def compute(self, params: dict[str, Any]) -> dict[str, Any]:
         """The go/no-go poll — synchronous request/response at ``GET …/compute``.
@@ -94,8 +99,14 @@ class ExamplePlugin(ComputePlugin):
         }
 
     def get_route_handlers(self) -> list[Any]:
-        """Custom REST routes, served under ``/api/plugins/example/`` — see ``routes.py``."""
-        return _routes.get_route_handlers()
+        """Custom REST routes, served under ``/api/plugins/example/`` — see ``routes.py``.
+
+        The SDK's shared data-source routes (``/browse`` + ``/upload-temp``) ride along:
+        they are what the data-source picker in the fragment talks to.
+        """
+        from tlc_plugin_sdk.shared.data_source_routes import data_source_route_handlers
+
+        return [*_routes.get_route_handlers(), *data_source_route_handlers()]
 
     def run_job(self, ctx: JobContext) -> None:
         """The launch sequence — a long job at ``POST …/run`` (fire-and-return).
