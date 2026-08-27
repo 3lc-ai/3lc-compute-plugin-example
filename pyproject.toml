@@ -21,12 +21,11 @@ requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 classifiers = ["License :: OSI Approved :: Apache Software License"]
 # Base = the SDK floor ONLY. This plugin needs no more; a real plugin's deps go in its
-# extra below, never in the base. If your plugin uses the SDK's `tlc` data plane
-# (`tlc_plugin_sdk.shared.*` image/alias/model-storage helpers), depend on
-# `3lc-compute-plugin-sdk[shared]` AND add `3lc[pandas]>=3.0.0,<4.0.0` as a direct dep —
-# both resolve from public PyPI.
+# extra below, never in the base. The SDK brings the `tlc` data plane (`3lc[pandas]`) and the
+# `tlc_plugin_sdk.shared.*` helpers with it — no separate `3lc` dep is needed. Everything resolves
+# from public PyPI.
 dependencies = [
-    "3lc-compute-plugin-sdk>=0.2.2,<0.3.0",
+    "3lc-compute-plugin-sdk>=0.3.1,<0.4.0",
 ]
 
 # The plugin's extra — installed ONLY into its provisioned venv. Provisioning opts into the
