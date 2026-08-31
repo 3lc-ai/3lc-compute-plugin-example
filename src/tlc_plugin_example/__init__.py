@@ -150,5 +150,5 @@ class ExamplePlugin(ComputePlugin):
                 ctx.log(f"stage {stage} separation confirmed")
 
         # The canonical artifact link — a real plugin points this at the run/table it made.
-        ctx.result(run_url=f"3lc://missions/{destination.lower()}")
+        ctx.result(f"3lc://missions/{destination.lower()}")
         ctx.log(f"{destination} orbit achieved — mission complete, splashdown when ready")
