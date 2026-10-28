@@ -202,13 +202,15 @@
 
     // run_job(ctx) via window.PluginJobs — start/track/cancel on the generic channel,
     // plus the plugin-private ctx.emit('telemetry') stream for the live readouts.
-    var currentJob = null, offTelemetry = null;
+    var currentJob = null, abortRequested = false, ended = false, offTelemetry = null;
     var done = function (msg) {
+      ended = true;
       $('mc-launch').disabled = false; $('mc-abort').disabled = true;
       if (offTelemetry) { offTelemetry(); offTelemetry = null; }
       show('mc-job-out', msg);
     };
     $('mc-launch').onclick = function () {
+      currentJob = null; abortRequested = false; ended = false;
       $('mc-launch').disabled = true; $('mc-abort').disabled = false;
       $('mc-bar').style.width = '0%';
       var dest = $('mc-dest').value;
@@ -220,21 +222,36 @@
       });
       window.PluginJobs.run(PLUGIN_ID, { destination: dest, stages: 3 }, {
         onUpdate: function (job) {
-          currentJob = job.id || currentJob;
           $('mc-bar').style.width = ((job.progress && job.progress.percent) || 0) + '%';
           show('mc-job-out', (job.progress && job.progress.label) || job.status || '…');
         },
         onDone: function (job) {
           $('mc-bar').style.width = '100%';
-          API.showToast('Mission to ' + dest + ' complete', 'success');
+          if (job.status !== 'cancelled') { API.showToast('Mission to ' + dest + ' complete', 'success'); }
           done(job.status === 'cancelled'
             ? 'mission aborted — capsule recovered'
             : 'orbit achieved — run_url: ' + (job.run_url || '(none)'));
         },
         onError: function (job) { done('anomaly: ' + (job.subtitle || 'unknown')); }
+      })
+      // Keep the job's id from the start answer: it is the handle Abort cancels. Do not wait for
+      // the first job_update to learn it. "queued" is emitted while a fresh socket may still be
+      // connecting, and Socket.IO never replays it; the next update is the worker's first
+      // progress, after a queue slot and the worker's start. An Abort pressed before the answer
+      // waits for it here.
+      .then(function (resp) {
+        if (ended || !resp || !resp.job_id) { return; }   // refused (onError had it), or already over
+        currentJob = resp.job_id;
+        if (abortRequested) { window.PluginJobs.cancel(currentJob); }
       });
     };
-    $('mc-abort').onclick = function () { if (currentJob) { window.PluginJobs.cancel(currentJob); } };
+    // Abort cancels the job if its id is known, and otherwise the moment the start answer brings it.
+    $('mc-abort').onclick = function () {
+      abortRequested = true;
+      $('mc-abort').disabled = true;
+      show('mc-job-out', 'abort requested…');
+      if (currentJob) { window.PluginJobs.cancel(currentJob); }
+    };
   })();
   </script>
 </div>
