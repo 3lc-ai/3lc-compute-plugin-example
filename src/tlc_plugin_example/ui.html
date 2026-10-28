@@ -24,7 +24,10 @@
     .mc h2 code { text-transform: none; }
     .mc button { font: inherit; font-size: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); background: var(--bg); color: var(--text); cursor: pointer; margin: 0 6px 6px 0; transition: background var(--transition, 150ms ease); }
     .mc button:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); }
-    .mc button:disabled { opacity: .5; cursor: default; }
+    .mc button:disabled { opacity: .5; cursor: not-allowed; }
+    /* The line under an action that says why it cannot run yet. It keeps its one line when empty,
+       so the page does not move as the reason comes and goes. */
+    .mc .why { color: var(--text-muted); font-size: 12px; line-height: 1.5; min-height: 1.5em; }
     .mc select { font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); background: var(--bg); color: var(--text); margin-right: 6px; }
     .mc pre { background: var(--code-bg); color: var(--code-fg); border-radius: var(--radius-sm, 4px); padding: 10px; overflow: auto; font-size: 12px; margin: 8px 0 0; max-height: 180px; }
     .mc code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--bg); border: 1px solid var(--border-light); padding: 1px 5px; border-radius: var(--radius-sm, 4px); font-size: .9em; }
@@ -69,8 +72,11 @@
 
   <section>
     <h2>Cargo manifest — the shared data-source picker (<code>shared.data_source_ui</code>)</h2>
+    <!-- The Hub's form classes: a required field gets a red * on its label and a red wash while empty. -->
+    <label class="form-label required" for="mc-manifest-path">Manifest file</label>
     <div id="mc-manifest" style="max-width: 480px; margin-bottom: 8px"></div>
-    <button id="mc-manifest-check">POST /cargo-manifest (inspect)</button>
+    <button id="mc-manifest-check" aria-describedby="mc-manifest-why">POST /cargo-manifest (inspect)</button>
+    <div class="why" id="mc-manifest-why"></div>
     <pre id="mc-manifest-out">pick a file on the compute node — browse, type a path, or upload</pre>
   </section>
 
@@ -170,7 +176,26 @@
       allowUpload: true
     });
     _tlcBindDataSource('mc-manifest-path', base, PLUGIN_ID);
+    $('mc-manifest-path').required = true;
+
+    // An action that cannot run yet is disabled and says why: in its tooltip and on the line
+    // under it. One function names what is missing, as what to do ('' when it can run); one
+    // applies that. It runs whenever the field changes: typing, Browse and Upload all fire
+    // input/change on it. Anything that fills a field in code calls it too.
+    function manifestBlocker() {
+      return _tlcGetDataSourceValue('mc-manifest-path') ? '' : 'Choose a manifest file to enable POST /cargo-manifest (inspect).';
+    }
+    function gateManifest() {
+      var reason = manifestBlocker();
+      $('mc-manifest-check').disabled = !!reason;
+      $('mc-manifest-check').title = reason;
+      $('mc-manifest-why').textContent = reason;
+    }
+    $('mc-manifest').addEventListener('input', gateManifest);
+    $('mc-manifest').addEventListener('change', gateManifest);
+    gateManifest();
     $('mc-manifest-check').onclick = function () {
+      if (manifestBlocker()) { gateManifest(); return; }
       api('/cargo-manifest', { method: 'POST', body: JSON.stringify({ path: _tlcGetDataSourceValue('mc-manifest-path') }) })
         .then(function (r) { return r.json(); }).then(function (j) { show('mc-manifest-out', j); });
     };
