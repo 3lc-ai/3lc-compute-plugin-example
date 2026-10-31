@@ -29,3 +29,21 @@ jobs:
 
       - name: Ruff format check
         run: uvx --from 'ruff>=0.15,<0.16' ruff format --check .
+
+  test:
+    name: pytest (harness + lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.8.15"
+
+      # The same venv the host provisions (the plugin's extra), plus pytest from the dev group.
+      - name: Sync the plugin's venv
+        run: uv sync --locked --extra example
+
+      - name: pytest
+        run: uv run pytest -q

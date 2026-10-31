@@ -95,6 +95,10 @@ def get_route_handlers() -> list[BaseRouteHandler]:
         Every user-typed path goes through ``normalize_local_path`` at ingress: it
         strips whitespace, expands ``~``, and rejects relative paths (which would
         silently resolve against the plugin venv's CWD, not the user's).
+
+        The answer is the Hub's result shape, ``{success, message, details}``: the fragment
+        hands it to ``PLUGIN_API.showResult`` as it is, so every plugin's outcome box looks
+        and closes the same.
         """
         from pathlib import Path as _Path
 
@@ -103,14 +107,14 @@ def get_route_handlers() -> list[BaseRouteHandler]:
         try:
             manifest_path = normalize_local_path(str(data.get("path", "")))
         except ValueError as exc:
-            return {"error": str(exc)}
+            return {"success": False, "message": str(exc)}
         p = _Path(manifest_path)
         if not p.is_file():
-            return {"error": f"No such file on the compute node: {manifest_path}"}
+            return {"success": False, "message": f"No such file on the compute host: {manifest_path}"}
         return {
-            "path": manifest_path,
-            "size_bytes": p.stat().st_size,
-            "verdict": "manifest accepted — cargo cleared for loading",
+            "success": True,
+            "message": "manifest accepted — cargo cleared for loading",
+            "details": {"path": manifest_path, "size_bytes": p.stat().st_size},
         }
 
     return [list_crew, get_crew_member, add_crew_member, patch, load_cargo, inspect_cargo_manifest]

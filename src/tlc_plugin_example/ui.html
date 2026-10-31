@@ -4,40 +4,41 @@
   plugin contract, so this file doubles as living documentation for the JS side:
 
     window.PLUGIN_API  — the host bridge (context, getConfig, authFetch, data,
-                         showToast, getIcon); injected by the frontend at mount.
+                         showToast, showResult, getIcon); injected by the Hub at mount.
     window.PluginJobs  — the generic job channel client (run/track/cancel + custom
-                         ctx.emit events); injected by get_ui_fragment() right after
-                         the first <script> tag below.
+                         ctx.emit events); the worker's /ui handler adds it to every
+                         fragment, so there is nothing to inject.
 
-  House rules: reach the host ONLY through PLUGIN_API, and style with the theme
-  tokens (var(--text), var(--bg-card), ...) — never hardcoded hex — so the fragment
-  matches the active theme, light and dark.
+  House rules (the SDK lint checks them: python -m tlc_plugin_sdk.lint src/):
+  reach the host ONLY through PLUGIN_API; use the Hub's classes (.btn, .form-select,
+  .form-label) instead of styling your own; colour with the theme tokens (var(--text),
+  var(--bg-card), …), never hardcoded hex; and scope every rule of your own under a
+  class named after the plugin (.example-…), so nothing leaks into the Hub page.
 -->
-<div class="mc" data-plugin-id="example">
+<div class="example-mc" data-plugin-id="example">
   <style>
-    .mc { color: var(--text); padding: 20px; max-width: 820px; font-family: inherit; }
-    .mc h1 { margin: 0 0 4px; font-size: 20px; display: flex; align-items: center; gap: 8px; }
-    .mc h1 svg { width: 20px; height: 20px; }
-    .mc .sub { color: var(--text-muted); margin: 0 0 18px; font-size: 12px; }
-    .mc section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg, 8px); padding: 16px; margin: 12px 0; }
-    .mc h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 0 0 12px; }
-    .mc h2 code { text-transform: none; }
-    .mc button { font: inherit; font-size: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); background: var(--bg); color: var(--text); cursor: pointer; margin: 0 6px 6px 0; transition: background var(--transition, 150ms ease); }
-    .mc button:hover:not(:disabled) { background: var(--accent-light); border-color: var(--accent); }
-    .mc button:disabled { opacity: .5; cursor: not-allowed; }
+    .example-mc { color: var(--text); padding: 20px; max-width: 820px; font-family: inherit; }
+    .example-mc h1 { margin: 0 0 4px; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+    .example-mc h1 svg { width: 20px; height: 20px; }
+    .example-mc .sub { color: var(--text-muted); margin: 0 0 18px; font-size: 12px; }
+    .example-mc section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg, 8px); padding: 16px; margin: 12px 0; }
+    .example-mc h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 0 0 12px; }
+    .example-mc h2 code { text-transform: none; }
+    .example-mc .btn { margin: 0 6px 6px 0; }
     /* The line under an action that says why it cannot run yet. It keeps its one line when empty,
        so the page does not move as the reason comes and goes. */
-    .mc .why { color: var(--text-muted); font-size: 12px; line-height: 1.5; min-height: 1.5em; }
-    .mc select { font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); background: var(--bg); color: var(--text); margin-right: 6px; }
-    .mc pre { background: var(--code-bg); color: var(--code-fg); border-radius: var(--radius-sm, 4px); padding: 10px; overflow: auto; font-size: 12px; margin: 8px 0 0; max-height: 180px; }
-    .mc code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--bg); border: 1px solid var(--border-light); padding: 1px 5px; border-radius: var(--radius-sm, 4px); font-size: .9em; }
-    .mc .stats { display: flex; gap: 12px; flex-wrap: wrap; }
-    .mc .stat { border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); padding: 8px 14px; min-width: 90px; }
-    .mc .stat b { display: block; font-size: 18px; }
-    .mc .stat span { font-size: 11px; color: var(--text-muted); }
-    .mc .bar { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; margin: 10px 0 8px; }
-    .mc .bar > i { display: block; height: 100%; width: 0; background: var(--btn-primary-bg); transition: width .2s; }
-    .mc img.patch { vertical-align: middle; image-rendering: pixelated; width: 48px; height: 48px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg); padding: 4px; }
+    .example-mc .why { color: var(--text-muted); font-size: 12px; line-height: 1.5; min-height: 1.5em; }
+    .example-mc .example-mc-inline { display: inline-block; width: auto; margin: 0 6px 6px 0; vertical-align: middle; }
+    .example-mc pre { background: var(--code-bg); color: var(--code-fg); border-radius: var(--radius-sm, 4px); padding: 10px; overflow: auto; font-size: 12px; margin: 8px 0 0; max-height: 180px; }
+    .example-mc code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--bg); border: 1px solid var(--border-light); padding: 1px 5px; border-radius: var(--radius-sm, 4px); font-size: .9em; }
+    .example-mc .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+    .example-mc .stat { border: 1px solid var(--border); border-radius: var(--radius-sm, 4px); padding: 8px 14px; min-width: 90px; }
+    .example-mc .stat b { display: block; font-size: 18px; }
+    .example-mc .stat span { font-size: 11px; color: var(--text-muted); }
+    .example-mc .bar { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; margin: 10px 0 8px; }
+    .example-mc .bar > i { display: block; height: 100%; width: 0; background: var(--btn-primary-bg); transition: width .2s; }
+    .example-mc img.patch { vertical-align: middle; image-rendering: pixelated; width: 48px; height: 48px; border: 1px solid var(--border); border-radius: 50%; background: var(--bg); padding: 4px; }
+    .example-mc .result { margin-top: 8px; }
   </style>
 
   <h1><span id="mc-icon"></span>Mission Control</h1>
@@ -56,16 +57,16 @@
 
   <section>
     <h2>Go / no-go poll — <code>compute()</code>, the synchronous call</h2>
-    <button id="mc-gonogo">Poll all stations</button>
+    <button id="mc-gonogo" class="btn btn-sm btn-primary">Poll all stations</button>
     <pre id="mc-gonogo-out">—</pre>
   </section>
 
   <section>
     <h2>Crew &amp; cargo — custom routes via <code>get_route_handlers()</code></h2>
-    <button id="mc-crew">GET /crew</button>
-    <button id="mc-crew-add">POST /crew (recruit)</button>
-    <button id="mc-crew-404">GET /crew/elvis → 404</button>
-    <button id="mc-cargo">POST /cargo (raw bytes)</button>
+    <button id="mc-crew" class="btn btn-sm">GET /crew</button>
+    <button id="mc-crew-add" class="btn btn-sm">POST /crew (recruit)</button>
+    <button id="mc-crew-404" class="btn btn-sm">GET /crew/elvis → 404</button>
+    <button id="mc-cargo" class="btn btn-sm">POST /cargo (raw bytes)</button>
     <span>mission patch (binary, auth-exempt): <img class="patch" id="mc-patch" alt="mission patch"></span>
     <pre id="mc-routes-out">—</pre>
   </section>
@@ -75,18 +76,19 @@
     <!-- The Hub's form classes: a required field gets a red * on its label and a red wash while empty. -->
     <label class="form-label required" for="mc-manifest-path">Manifest file</label>
     <div id="mc-manifest" style="max-width: 480px; margin-bottom: 8px"></div>
-    <button id="mc-manifest-check" aria-describedby="mc-manifest-why">POST /cargo-manifest (inspect)</button>
+    <button id="mc-manifest-check" class="btn btn-sm" aria-describedby="mc-manifest-why">POST /cargo-manifest (inspect)</button>
     <div class="why" id="mc-manifest-why"></div>
-    <pre id="mc-manifest-out">pick a file on the compute node — browse, type a path, or upload</pre>
+    <!-- The route answers {success, message, details}; PLUGIN_API.showResult draws it (Hub 1.2+). -->
+    <div class="result" id="mc-manifest-out"></div>
   </section>
 
   <section>
     <h2>Launch sequence — <code>run_job(ctx)</code> + the generic job channel</h2>
-    <select id="mc-dest">
+    <select id="mc-dest" class="form-select example-mc-inline">
       <option>Luna</option><option>Mars</option><option>Europa</option><option>Titan</option>
     </select>
-    <button id="mc-launch">Launch</button>
-    <button id="mc-abort" disabled>Abort</button>
+    <button id="mc-launch" class="btn btn-sm btn-primary">Launch</button>
+    <button id="mc-abort" class="btn btn-sm btn-danger" disabled>Abort</button>
     <div class="bar"><i id="mc-bar"></i></div>
     <div class="stats">
       <div class="stat"><b id="mc-alt">0</b><span>altitude, km (ctx.metric)</span></div>
@@ -97,11 +99,12 @@
   </section>
 
   <script>
-  /* window.PluginJobs is injected by get_ui_fragment() right after this tag. The
-     ambient types for PLUGIN_API / PluginJobs load via the repo-root jsconfig.json. */
+  /* The data-source picker script is injected by get_ui_fragment() right after this tag;
+     window.PluginJobs is added by the worker's /ui handler. The ambient types for
+     PLUGIN_API / PluginJobs load via the repo-root jsconfig.json. */
   (function () {
     var API = window.PLUGIN_API;
-    var EL = document.currentScript.closest('.mc');
+    var EL = document.currentScript.closest('.example-mc');
     var PLUGIN_ID = EL.getAttribute('data-plugin-id');
     var NAMESPACE = '/' + PLUGIN_ID;
     var base = API.getConfig('compute_service_url');
@@ -112,11 +115,13 @@
     // PLUGIN_API.getIcon — the manifest's icon_svg, resolved by the host.
     $('mc-icon').innerHTML = API.getIcon ? API.getIcon() : '';
 
-    // PLUGIN_API.context — what the user launched the plugin against.
+    // PLUGIN_API.context — what the user launched the plugin against. contractVersion is the
+    // SDK contract the Hub implements ("0.6"); getConfig('deployment_name') names the deployment.
     show('mc-ctx', {
       resourceType: API.context.resourceType,
       resourceUrls: API.context.resourceUrls,
       projectName: API.context.projectName,
+      deploymentName: API.getConfig('deployment_name'),
       contractVersion: API.contractVersion
     });
 
@@ -154,6 +159,7 @@
         .then(function (j) { show('mc-routes-out', j); API.showToast(j.name + ' joined the crew', 'success'); });
     };
     $('mc-crew-404').onclick = function () {
+      // authFetch rejects a non-ok answer with its parsed detail, so the 404 lands in catch.
       api('/crew/elvis').then(function (r) { return r.json(); })
         .then(function (j) { show('mc-routes-out', j); })
         .catch(function (e) { show('mc-routes-out', '404 — ' + e.message); });
@@ -165,17 +171,17 @@
     // Auth-exempt binary asset — an <img> can't send an Authorization header.
     $('mc-patch').src = base + '/api/plugins/' + PLUGIN_ID + '/patch.png';
 
-    // The SDK's shared data-source picker — one consistent chooser for files and folders
-    // on the compute node (injected by get_ui_fragment() alongside PluginJobs).
-    // _tlcDataSourceHtml renders the widget, _tlcBindDataSource wires its Browse/Upload
-    // panel to the SDK-provided /browse + /upload-temp routes this plugin mounts in
-    // get_route_handlers(), and _tlcGetDataSourceValue reads the path at submit time.
+    // The SDK's shared data-source picker — one file chooser for files and folders the run
+    // target can read: the folders the host's operator offers (TLC_DATA_SOURCE_ROOTS), the
+    // deployment's buckets, and an upload. It follows the Hub's "Run on:" choice by itself.
+    // _tlcDataSourceHtml renders the field, _tlcBindDataSource wires its Browse… panel to the
+    // SDK-provided /browse + /upload-temp routes this plugin mounts in get_route_handlers(),
+    // and _tlcGetDataSourceValue reads the path at submit time.
     $('mc-manifest').innerHTML = _tlcDataSourceHtml('mc-manifest-path', {
       placeholder: '/path/to/cargo-manifest.txt',
-      mode: 'file',
       allowUpload: true
     });
-    _tlcBindDataSource('mc-manifest-path', base, PLUGIN_ID);
+    _tlcBindDataSource('mc-manifest-path', base, PLUGIN_ID, { mode: 'file', purpose: 'input' });
     $('mc-manifest-path').required = true;
 
     // An action that cannot run yet is disabled and says why: in its tooltip and on the line
@@ -194,10 +200,18 @@
     $('mc-manifest').addEventListener('input', gateManifest);
     $('mc-manifest').addEventListener('change', gateManifest);
     gateManifest();
+    // PLUGIN_API.showResult draws the Hub's result box from the {success, message, details} the
+    // route returns — the same box every plugin's run ends in. Optional (Hub 1.2+): feature-detect
+    // it and draw the message yourself on an older Hub.
+    function showOutcome(result) {
+      var target = $('mc-manifest-out');
+      if (API.showResult) { API.showResult(target, result); return; }
+      target.textContent = (result.success ? 'OK — ' : 'Failed — ') + (result.message || '');
+    }
     $('mc-manifest-check').onclick = function () {
       if (manifestBlocker()) { gateManifest(); return; }
       api('/cargo-manifest', { method: 'POST', body: JSON.stringify({ path: _tlcGetDataSourceValue('mc-manifest-path') }) })
-        .then(function (r) { return r.json(); }).then(function (j) { show('mc-manifest-out', j); });
+        .then(function (r) { return r.json(); }).then(showOutcome);
     };
 
     // run_job(ctx) via window.PluginJobs — start/track/cancel on the generic channel,
@@ -232,7 +246,10 @@
             ? 'mission aborted — capsule recovered'
             : 'orbit achieved — run_url: ' + (job.run_url || '(none)'));
         },
-        onError: function (job) { done('anomaly: ' + (job.subtitle || 'unknown')); }
+        // The failure message is job.error (a ctx.fail() sentence, or "TypeName: …" for a raised
+        // exception); job.subtitle is the last progress label. A refused start (409, 403, an
+        // unreachable service) lands here too.
+        onError: function (job) { done('anomaly: ' + (job.error || job.subtitle || 'unknown')); }
       })
       // Keep the job's id from the start answer: it is the handle Abort cancels. Do not wait for
       // the first job_update to learn it. "queued" is emitted while a fresh socket may still be
