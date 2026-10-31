@@ -14,18 +14,23 @@ build-backend = "hatchling.build"
 
 [project]
 name = "3lc-compute-plugin-example"
-version = "0.2.0"
+version = "0.3.0"
 description = "Mission Control — the example plugin for the 3LC compute service (venv-isolated)."
-requires-python = ">=3.10"
+# The SDK's own range. The host builds the plugin's venv with its own interpreter (Python 3.11 or
+# newer on Compute 1.2); the ceiling is there because the 3lc core publishes no 3.15 wheels yet.
+requires-python = ">=3.10,<3.15"
 # Apache-2.0, matching 3lc-compute-plugin-sdk. Full text in ./LICENSE.
 license = { text = "Apache-2.0" }
 classifiers = ["License :: OSI Approved :: Apache Software License"]
-# Base = the SDK floor ONLY. This plugin needs no more; a real plugin's deps go in its
-# extra below, never in the base. The SDK brings the `tlc` data plane (`3lc[pandas]`) and the
+# Base = the SDK floor ONLY. This plugin needs no more; a real plugin's deps go in its extra
+# below, never in the base. The SDK brings the `tlc` data plane (`3lc[pandas]`) and the
 # `tlc_plugin_sdk.shared.*` helpers with it — no separate `3lc` dep is needed. Everything resolves
 # from public PyPI.
+#
+# The SDK version is the plugin contract, compared on MAJOR.MINOR: the 0.6 line is what Compute
+# 1.2 implements, so this pin and `min_service_version` in plugin.toml say the same thing.
 dependencies = [
-    "3lc-compute-plugin-sdk>=0.3.1,<0.4.0",
+    "3lc-compute-plugin-sdk>=0.6.1,<0.7.0",
 ]
 
 # The plugin's extra — installed ONLY into its provisioned venv. Provisioning opts into the
@@ -39,17 +44,22 @@ example = []
 [project.entry-points."tlc_compute.plugins"]
 example = "tlc_plugin_example"
 
+# Tests run the plugin through the SDK's harness and lint (tests/): `uv sync --extra example`
+# then `uv run pytest`. Never a runtime dependency of the plugin.
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
 [tool.hatch.build.targets.wheel]
 packages = [
     "src/tlc_plugin_example",
 ]
 
-# Both `3lc` and `3lc-compute-plugin-sdk` resolve from public PyPI (the SDK's home since
-# 0.2.2) — no custom indexes. For local dev against a sibling SDK checkout, add an
-# UNCOMMITTED [tool.uv.sources] override (a committed relative `path = ...` source breaks
-# remote consumers — uv reads it as a subdirectory of this repo):
+# Both `3lc` and `3lc-compute-plugin-sdk` resolve from public PyPI — no custom indexes. For local
+# dev against a sibling SDK checkout, add an UNCOMMITTED [tool.uv.sources] override (a committed
+# relative `path = ...` source breaks remote consumers — uv reads it as a subdirectory of this
+# repo):
 #   [tool.uv.sources]
-#   3lc-compute-plugin-sdk = { path = "../3lc-plugin-sdk", editable = true }
+#   3lc-compute-plugin-sdk = { path = "../3lc-compute-plugin-sdk", editable = true }
 
 # Ruff config mirrors 3lc-compute-plugin-sdk for a consistent house style. CI runs ruff
 # standalone (uvx) — linting must not require resolving any dependency stack.

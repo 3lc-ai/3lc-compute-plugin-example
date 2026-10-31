@@ -6,17 +6,26 @@
 # [tool.tlc-compute] table inside a pyproject.toml.
 #
 # This file documents the full manifest surface: required keys are set, optional
-# ones are shown commented with what they do.
+# ones are shown commented with what they do. The plugin author guide has the rest:
+# https://3lc-ai.github.io/3lc-compute-plugin-sdk/plugin-guide.html
 
 id = "example"                        # public id; used in URLs AND as the SocketIO namespace (/example). Hyphens ok.
 name = "Mission Control"
 description = "The example plugin — a runnable tour of everything a plugin can do, staged as a rocket launch."
-version = "0.2.0"                     # SemVer; bump on every release
+version = "0.3.0"                     # SemVer; bump on every release (the catalog lists releases by it)
 icon = "🚀"                           # emoji / short text icon; icon_svg below wins where SVG is supported
 icon_svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5c2 1.5 3 4 3 6.5l-1.5 3h-3L5 8c0-2.5 1-5 3-6.5z"/><circle cx="8" cy="6.5" r="1"/><path d="M5 8l-1.7 2.2L5.5 11M11 8l1.7 2.2L10.5 11M7 12.5l1 2 1-2"/></svg>'
-min_service_version = "0.1.0"         # refuse to load on older compute-services (contract floor)
-# max_service_version = "1.0.0"       # ceiling, when a host change would break this plugin
-# min_frontend_version = "0.1.0"      # the PLUGIN_API (JS_CONTRACT) version this ui.html requires
+# kind = "compute"                    # the default. "infrastructure" = a provider that creates nodes instead of
+#                                     # computing (subclasses InfrastructurePlugin; guide → "Infrastructure plugins")
+# The Compute Service floor. The SDK this plugin pins (0.6, pyproject.toml) is the contract
+# Compute 1.2 implements — an older service would refuse the worker on contract skew anyway, so
+# saying it here lists the plugin greyed-out with the reason instead.
+min_service_version = "1.2.0"
+# max_service_version = "2.0.0"       # ceiling, when a host change would break this plugin
+# The Hub (frontend) floor. Set it when ui.html relies on something a Hub before that version
+# lacks — <tlc-table-field>, TlcPicker, PLUGIN_API.showResult are Hub 1.2. This fragment
+# feature-detects everything optional it uses, so it declares no floor.
+# min_frontend_version = "1.2.0"
 repository_url = "https://github.com/3lc-ai/3lc-compute-plugin-example"  # shown on the plugins page
 
 [ui]
@@ -24,9 +33,11 @@ display_mode = "sidebar"              # sidebar = nav item (grouped by `section`
 section = "Examples"                  # sidebar group heading (sidebar mode)
 priority = 10                         # higher sorts earlier within the section
 compatible_with = ["table"]           # resource types this plugin applies to: "table" | "run"
+# group = "My Group"                  # optional sub-grouping inside the section, with its own icon
+# group_icon_svg = '<svg …>'
 # ── action-mode fields (used when display_mode = "action") ──
 # input_types = ["table"]             # resource types the action consumes
-# min_input_count = 1                 # min selected resources to enable the action (default: len(input_types))
+# min_input_count = 1                 # min selected resources to enable the action (default: len(input_types); 0 = none)
 # action_param_names = ["url"]        # query params handed to /plugin/{id} when launched from a resource page
 # output_types = ["run"]              # what this plugin produces (informational)
 quick_action = true                   # surface as a one-click action on the dashboard
@@ -34,13 +45,30 @@ quick_action_label = "Launch a Mission"
 quick_action_description = "Fly the example plugin end to end: jobs, routes, telemetry"
 
 [runtime]
-isolation = "venv"                    # runs out-of-process in this plugin's own venv (the way)
 entrypoint = "tlc_plugin_example:ExamplePlugin"   # module:Class the host instantiates (in the worker)
 provision_extra = "example"           # this plugin's extra in the repo-root pyproject.toml
 requires_gpu = false                  # true → classified GPU + serialized through the shared GPU queue
+# isolation = "venv"                  # the one runtime there is: every plugin runs out-of-process in its own
+#                                     # host-built venv. Older manifests still say it; nothing reads it.
+# remote_capable = true               # a run may target a remote node the Hub manages although requires_gpu
+#                                     # is false. Off here: /cargo-manifest inspects THIS host's disk.
+# ── what a run reads and writes (dotted keys into the JSON body posted to /run) ──
+# The host plans these against the run target before the run — a folder on this host is not on a
+# node, a node may not read every bucket — and asks the person once, in the Hub. Leave the project
+# root out: the host stamps it itself (ctx.project_root_url). Guide → "Data inputs and run targets".
+# data_inputs = ["folder", "source.table_url"]
+# data_outputs = ["output_path"]
+# node_routes = ["/preview"]          # custom routes that run on the node for a node run; the rest stay on the controller
+# ── tokens (SECRET Connections) ──
+# Services whose token the person may lend this plugin, and the custom routes that receive it.
+# A job reads it with ctx.get_credential("huggingface"); a listed route with
+# connections.current_credential("huggingface"). Guide → "Tokens on runs and routes (SECRET)".
+# credentials = [{ service = "huggingface", required = false, value_hint = "A token from huggingface.co/settings/tokens." }]
+# credential_routes = ["/hf/search"]
 # training = false                    # marks long-running, training-style jobs (informational)
 # venv_python = "/abs/path/python"    # pin the worker interpreter (else: env var → managed venv → host)
-# Routes excluded from the standard auth middleware, for assets fetched without an
-# Authorization header (e.g. an <img> src). Validate a signed token in-handler for
-# anything private; this mission patch is public.
+# Routes served without the auth middleware, for assets fetched without an Authorization header
+# (an <img> src). Full paths under this plugin's own prefix, /api/plugins/example/, and a subpath
+# must be named — anything else is refused and listed on the plugin card. Validate a signed
+# token in-handler for anything private; this mission patch is public.
 auth_exempt_paths = ["/api/plugins/example/patch.png"]
